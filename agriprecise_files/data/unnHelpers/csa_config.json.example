@@ -1,0 +1,51 @@
+{
+    "applicationName": "DM",
+    "inputNN": {
+        "nnInputName": "conv_autoencoder.unn",
+        "nnInputModelName": "DM",
+        "nnInputExecutors": 2
+    },
+    "outputNN": {
+        "nnOutputName": "",
+        "nnOutputModelName": "",
+        "nnOutputExecutors": 0
+    },
+    "PCD": {
+        "pcdFile": "",
+        "pcdName": "",
+        "pcdResourceUsageFlag": 0,
+        "DPEResources": 0,
+        "inputPCD": {
+            "inputPCDPipe0": 99,
+            "inputPCDPipe1": 99,
+            "inputPCDPipe2": 99,
+            "inputPCDPipe3": 99
+        },
+        "outputPCD": {
+            "outputPCDPipe0": 99,
+            "outputPCDPipe1": 99,
+            "outputPCDPipe2": 99,
+            "outputPCDPipe3": 99
+        }
+    },
+    "imageExt": ".bin",
+    "mvncLogLevel": 4,
+    "mvncResetAll": 0,
+    "compareAgainstReference": 0,
+    "saveOutputTensor": 1,
+    "folderStructure": {
+        "inputImagesPath": "/ubotica/data/nbiot_input/",
+        "cnnsAndPcdFolder": "/agriprecise_files/data/unnModels/",
+        "referenceTensorFolder": "",
+        "outputImagesPath": "/ubotica/data/output/"
+    },
+    "Rupia": {
+        "token": "<YOUR_RUPIA_TOKEN>",
+        "jobName": "agri_precise_AGRARIAN_OC2",
+        "downloadFolderPath": "/ubotica/data/output/",
+        "downloadResults": true,
+        "sendEmailAlert": true,
+        "printFileList": false,
+        "connection": "USB"
+    }
+}

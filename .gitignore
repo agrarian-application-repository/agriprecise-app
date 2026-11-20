@@ -1,0 +1,14 @@
+.env
+output/
+logs/
+__pycache__/
+*.py[cod]
+
+# Personal Rupia token: copy csa_config.json.example and fill it in locally
+agriprecise_files/data/unnHelpers/csa_config.json
+
+# Ubotica's csa binary is third-party and supplied by Ubotica; its data/ dirs are scratch
+ubotica/bin/*
+!ubotica/bin/.gitkeep
+ubotica/data/*/*
+!ubotica/data/*/.gitkeep

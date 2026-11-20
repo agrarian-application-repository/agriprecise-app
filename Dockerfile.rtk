@@ -1,0 +1,68 @@
+# Multi-stage build. The first stage compiles RTKLIB; the second keeps only the two
+# resulting binaries, so the runtime image carries no compiler, no sources and no git.
+# That removes about 630 MB of the previous 1.1 GB image, which matters on hardware
+# with limited disk.
+#
+# Both stages MUST use the same base image: convbin and rnx2rtkp are dynamically
+# linked against its glibc, and a mismatch would only surface at runtime.
+#
+# Compiling here rather than shipping prebuilt binaries keeps the image buildable for
+# whatever architecture the build runs on (x86_64, ARM, ...), which is not yet decided
+# for the flight computer.
+
+# ---------------------------------------------------------------------------
+# Stage 1: build RTKLIB
+# ---------------------------------------------------------------------------
+FROM python:3.10-slim AS builder
+
+# RTKLIB version PINNED. Cloning the default branch is not reproducible: the same
+# unpinned Dockerfile produced 2.5.0 in June and 2.5.1 in July 2026, and the rnx2rtkp
+# defaults differ between them, which silently changes the RTK fix rate.
+ARG RTKLIB_TAG=v2.5.1
+
+# gfortran is required: the rnx2rtkp makefile links against -lgfortran.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    gfortran \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /tmp
+RUN git clone --depth 1 --branch ${RTKLIB_TAG} https://github.com/rtklibexplorer/RTKLIB.git && \
+    { echo "tag: ${RTKLIB_TAG}"; echo "commit: $(git -C /tmp/RTKLIB rev-parse HEAD)"; } \
+        > /rtklib_version.txt && \
+    cat /rtklib_version.txt
+
+# -fcommon is required: the RTKLIB sources rely on the pre-GCC-10 default.
+RUN DIR=$(find /tmp/RTKLIB -type d -path "*/convbin/gcc" | head -n 1) && \
+    echo "Building convbin in: $DIR" && \
+    cd "$DIR" && make CC="gcc -fcommon" && \
+    cp convbin /out_convbin
+
+RUN DIR=$(find /tmp/RTKLIB -type d -path "*/rnx2rtkp/gcc" | head -n 1) && \
+    echo "Building rnx2rtkp in: $DIR" && \
+    cd "$DIR" && make CC="gcc -fcommon" && \
+    cp rnx2rtkp /out_rnx2rtkp
+
+# ---------------------------------------------------------------------------
+# Stage 2: runtime
+# ---------------------------------------------------------------------------
+FROM python:3.10-slim
+
+# Only the runtime library, not the gfortran compiler: rnx2rtkp is dynamically linked
+# against libgfortran and would fail to start without it.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgfortran5 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /out_convbin /usr/local/bin/convbin
+COPY --from=builder /out_rnx2rtkp /usr/local/bin/rnx2rtkp
+# Lets a running container report which RTKLIB it carries.
+COPY --from=builder /rtklib_version.txt /usr/local/share/rtklib_version.txt
+
+RUN pip install --no-cache-dir pyrtcm psycopg2-binary requests
+
+WORKDIR /app
+
+# A new script used by these services must be added here, not just written to disk.
+COPY agrarian_app.py .

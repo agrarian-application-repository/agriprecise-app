@@ -1,0 +1,75 @@
+# AGRI-PRECISE receiver (satellite node).
+#
+#   cp .env.example .env            # fill in DB_PASSWORD
+#   docker compose up -d --build
+#
+# ntn_server receives base, rover and nav RTCM3 over UDP, computes positions with RTKLIB
+# and inserts them into PostgreSQL; ntn_anomaly labels every run of 120 consecutive rover
+# epochs. Log: logs/server_execution.log (the same as `docker logs ntn_server`).
+#
+# Test without a GNSS feed: `docker compose run --rm launcher` replays the sample capture of
+# data/ as three passes and exits (see README).
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.rtk
+    container_name: ntn_server
+    command: python agrarian_app.py
+    env_file: .env
+    ports:
+      # The same PORT_* of .env on the host and inside the container
+      - "${PORT_BASE:-5005}:${PORT_BASE:-5005}/udp"
+      - "${PORT_ROVER:-5006}:${PORT_ROVER:-5006}/udp"
+      - "${PORT_NAV:-5007}:${PORT_NAV:-5007}/udp"
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+    restart: always
+
+  ai_predictor:
+    build:
+      context: .
+      dockerfile: Dockerfile.rupia
+    container_name: ntn_anomaly
+    # Paths inside the anomaly service are absolute (/agriprecise_files baked into the
+    # image, /ubotica mounted below). ntn_server reaches it as http://ai_predictor:8000
+    # over the compose network, so its port is not published.
+    command: python3 http_server.py
+    depends_on:
+      - server
+    environment:
+      - PYTHONUNBUFFERED=1
+      # hybrid_engine: csa on the CogniSAT, falling back to ONNX on the CPU when csa fails or
+      # takes over 30 s; csa_engine: csa only; onnx_engine: CPU only
+      - INFERENCE_ENGINE_MODE=${INFERENCE_ENGINE_MODE:-hybrid_engine}
+    volumes:
+      # The service only opens files under /agriprecise_files/data; ntn_server sends the
+      # window file as rover_windows/<name> (ANOMALY_SHARED_DIR in agrarian_app.py)
+      - ./output:/agriprecise_files/data/rover_windows:ro
+      # Normalisation statistics of the receiver the data comes from (see .env.example)
+      - ${ANOMALY_SCALER:-./agriprecise_files/data/dataHelpers/data_scaler.json}:/agriprecise_files/data/dataHelpers/data_scaler.json:ro
+      - ./logs/anomaly:/agriprecise_files/logs
+      # Ubotica's host layout (container_compatibility.pdf): bin/csa (read-only) and the
+      # data/nbiot_input/ and data/output/ folders csa exchanges the tensors through
+      - ${UBOTICA_DIR:-./ubotica}:/ubotica
+      - /dev/bus/usb:/dev/bus/usb
+    # The Myriad re-enumerates with a new device number once booted, so a fixed devices:
+    # entry would lose it halfway; allow the whole USB major (189) instead.
+    device_cgroup_rules:
+      - "c 189:* rmw"
+    restart: always
+
+  # --- Test without a GNSS feed: replays data/ as passes and exits (see README) ---
+  #   docker compose run --rm launcher            # sample capture, 3 passes
+  #   docker compose run --rm launcher drone      # drone flights, 5 passes
+  launcher:
+    image: python:3.10-slim
+    profiles: [test]
+    entrypoint: ["sh", "/tools/replay_passes.sh"]
+    env_file: .env
+    volumes:
+      - ./tools:/tools:ro
+      - ./data:/data:ro
+    depends_on: [server]
