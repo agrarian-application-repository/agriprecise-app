@@ -280,3 +280,6 @@ integration document above.
 
 #### Acknowledgement
 This work was supported by the AGRARIAN project under Horizon Europe call HORIZON-CL6-2023-GOVERNANCE-01-13, Grant 101134128. Views and opinions expressed are those of the authors only and do not necessarily reflect those of the European Union or European Commission.
+
+#### License
+Apache 2.0
