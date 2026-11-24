@@ -282,4 +282,9 @@ integration document above.
 This work was supported by the AGRARIAN project under Horizon Europe call HORIZON-CL6-2023-GOVERNANCE-01-13, Grant 101134128. Views and opinions expressed are those of the authors only and do not necessarily reflect those of the European Union or European Commission.
 
 #### License
-Apache 2.0
+This repository and its container images are licensed under the Apache License 2.0.
+
+The `ntn_server` image compiles the RTKLIB binaries `convbin` and `rnx2rtkp` from
+[rtklibexplorer/RTKLIB](https://github.com/rtklibexplorer/RTKLIB) (tag `v2.5.1`), which is
+distributed under its own license (BSD 2-clause, Copyright (c) 2007-2020 T. Takasu); see its
+[license.txt](https://github.com/rtklibexplorer/RTKLIB/blob/v2.5.1/license.txt).
